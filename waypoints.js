@@ -115,44 +115,90 @@ Support:
 			didResize: false,
 	
 			doScroll: $.proxy(function() {
-				var newScroll = this.element.scrollTop(),
 				
-				// Are we scrolling up or down? Used for direction argument in callback.
-				isDown = newScroll > this.oldScroll,
-				that = this,
-
-				// Get a list of all waypoints that were crossed since last scroll move.
-				pointsHit = $.grep(this.waypoints, function(el, i) {
-					return isDown ?
-						(el.offset > that.oldScroll && el.offset <= newScroll) :
-						(el.offset <= that.oldScroll && el.offset > newScroll);
-				}),
-				len = pointsHit.length;
+				//handle h scroll
+				if  (this.scrollType == 'h') {
+					
+					var newScroll = this.element.scrollLeft(),
 				
-				// iOS adjustment
-				if (!this.oldScroll || !newScroll) {
-					$[wps]('refresh');
-				}
+					// Are we scrolling up or down? Used for direction argument in callback.
+					isRight = newScroll > this.oldScroll,
+					that = this,
 
-				// Done with scroll comparisons, store new scroll before ejection
-				this.oldScroll = newScroll;
-
-				// No waypoints crossed? Eject.
-				if (!len) return;
-
-				// If several waypoints triggered, need to do so in reverse order going up
-				if (!isDown) pointsHit.reverse();
-
-				/*
-				One scroll move may cross several waypoints.  If the waypoint's continuous
-				option is true it should fire even if it isn't the last waypoint.  If false,
-				it will only fire if it's the last one.
-				*/
-				$.each(pointsHit, function(i, point) {
-					if (point.options.continuous || i === len - 1) {
-						triggerWaypoint(point, [isDown ? 'down' : 'up']);
+					// Get a list of all waypoints that were crossed since last scroll move.
+					pointsHit = $.grep(this.waypoints, function(el, i) {
+						return isRight ?
+							(el.offset > that.oldScroll && el.offset <= newScroll) :
+							(el.offset <= that.oldScroll && el.offset > newScroll);
+					}),
+					len = pointsHit.length;
+				
+					// iOS adjustment
+					if (!this.oldScroll || !newScroll) {
+						$[wps]('refresh');
 					}
-				});
+
+					// Done with scroll comparisons, store new scroll before ejection
+					this.oldScroll = newScroll;
+
+					// No waypoints crossed? Eject.
+					if (!len) return;
+
+					// If several waypoints triggered, need to do so in reverse order going up
+					if (!isRight) pointsHit.reverse();
+
+					/*
+					One scroll move may cross several waypoints.  If the waypoint's continuous
+					option is true it should fire even if it isn't the last waypoint.  If false,
+					it will only fire if it's the last one.
+					*/
+					$.each(pointsHit, function(i, point) {
+						if (point.options.continuous || i === len - 1) {
+							triggerWaypoint(point, [isRight ? 'right' : 'left']);
+						}
+					});
+					
+				} else {
+			
+					var newScroll = this.element.scrollTop(),
+				
+					// Are we scrolling up or down? Used for direction argument in callback.
+					isDown = newScroll > this.oldScroll,
+					that = this,
+
+					// Get a list of all waypoints that were crossed since last scroll move.
+					pointsHit = $.grep(this.waypoints, function(el, i) {
+						return isDown ?
+							(el.offset > that.oldScroll && el.offset <= newScroll) :
+							(el.offset <= that.oldScroll && el.offset > newScroll);
+					}),
+					len = pointsHit.length;
+				
+					// iOS adjustment
+					if (!this.oldScroll || !newScroll) {
+						$[wps]('refresh');
+					}
+
+					// Done with scroll comparisons, store new scroll before ejection
+					this.oldScroll = newScroll;
+
+					// No waypoints crossed? Eject.
+					if (!len) return;
+
+					// If several waypoints triggered, need to do so in reverse order going up
+					if (!isDown) pointsHit.reverse();
+
+					/*
+					One scroll move may cross several waypoints.  If the waypoint's continuous
+					option is true it should fire even if it isn't the last waypoint.  If false,
+					it will only fire if it's the last one.
+					*/
+					$.each(pointsHit, function(i, point) {
+						if (point.options.continuous || i === len - 1) {
+							triggerWaypoint(point, [isDown ? 'down' : 'up']);
+						}
+					});
+				}
 			}, this)
 		});
 		
@@ -299,13 +345,22 @@ Support:
 				opts = $.extend({}, base, options);
 				
 				// Offset aliases
-				opts.offset = opts.offset === "bottom-in-view" ?
-					function() {
-						var cHeight = $.isWindow(cElement) ? $[wps]('viewportHeight')
-							: $(cElement).height();
-						return cHeight - $(this).outerHeight();
-					} : opts.offset;
-
+				if (opts.horizontal) {
+					opts.offset = opts.offset === "bottom-in-view" ?
+						function() {
+							var cWidth = $.isWindow(cElement) ? $[wps]('viewportWidth')
+								: $(cElement).width();
+							return cWidth - $(this).outerWidth();
+						} : opts.offset;
+				} else {
+					opts.offset = opts.offset === "bottom-in-view" ?
+						function() {
+							var cHeight = $.isWindow(cElement) ? $[wps]('viewportHeight')
+								: $(cElement).height();
+							return cHeight - $(this).outerHeight();
+						} : opts.offset;
+				}
+				
 				// Update, or create new waypoint
 				if (ndx < 0) {
 					context.waypoints.push({
@@ -317,6 +372,9 @@ Support:
 				else {
 					context.waypoints[ndx].options = opts;
 				}
+				
+				//direction option for context
+				context.scrollType = (opts.horizontal) ? 'h' : 'v';
 				
 				// Bind the function if it was passed in.
 				if (f) {
@@ -384,62 +442,124 @@ Support:
 		*/
 		refresh: function() {
 			$.each(contexts, function(i, c) {
-				var isWin = $.isWindow(c.element[0]),
-				contextOffset = isWin ? 0 : c.element.offset().top,
-				contextHeight = isWin ? $[wps]('viewportHeight') : c.element.height(),
-				contextScroll = isWin ? 0 : c.element.scrollTop();
 				
-				$.each(c.waypoints, function(j, o) {
-				   /* $.each isn't safe from element removal due to triggerOnce.
-				   Should rewrite the loop but this is way easier. */
-				   if (!o) return;
-				   
-					// Adjustment is just the offset if it's a px value
-					var adjustment = o.options.offset,
-					oldOffset = o.offset;
-					
-					// Set adjustment to the return value if offset is a function.
-					if (typeof o.options.offset === "function") {
-						adjustment = o.options.offset.apply(o.element);
-					}
-					// Calculate the adjustment if offset is a percentage.
-					else if (typeof o.options.offset === "string") {
-						var amount = parseFloat(o.options.offset);
-						adjustment = o.options.offset.indexOf("%") ?
-							Math.ceil(contextHeight * (amount / 100)) : amount;
-					}
+				if (c.scrollType == 'h') {
+					var isWin = $.isWindow(c.element[0]),
+						contextOffset = isWin ? 0 : c.element.offset().left,
+						contextHeight = isWin ? $[wps]('viewportWidth') : c.element.width(),
+						contextScroll = isWin ? 0 : c.element.scrollLeft();
 
-					/* 
-					Set the element offset to the window scroll offset, less
-					all our adjustments.
-					*/
-					o.offset = o.element.offset().top - contextOffset
-						+ contextScroll - adjustment;
+					$.each(c.waypoints, function(j, o) {
+					   /* $.each isn't safe from element removal due to triggerOnce.
+					   Should rewrite the loop but this is way easier. */
+					   if (!o) return;
 
-					/*
-					An element offset change across the current scroll point triggers
-					the event, just as if we scrolled past it unless prevented by an
-					optional flag.
-					*/
-					if (o.options.onlyOnScroll) return;
+						// Adjustment is just the offset if it's a px value
+						var adjustment = o.options.offset,
+						oldOffset = o.offset;
+
+						// Set adjustment to the return value if offset is a function.
+						if (typeof o.options.offset === "function") {
+							adjustment = o.options.offset.apply(o.element);
+						}
+						// Calculate the adjustment if offset is a percentage.
+						else if (typeof o.options.offset === "string") {
+							var amount = parseFloat(o.options.offset);
+							adjustment = o.options.offset.indexOf("%") ?
+								Math.ceil(contextWidth * (amount / 100)) : amount;
+						}
+
+						/* 
+						Set the element offset to the window scroll offset, less
+						all our adjustments.
+						*/
+						o.offset = o.element.offset().left - contextOffset
+							+ contextScroll - adjustment;
+
+						/*
+						An element offset change across the current scroll point triggers
+						the event, just as if we scrolled past it unless prevented by an
+						optional flag.
+						*/
+						if (o.options.onlyOnScroll) return;
+
+						if (oldOffset !== null && c.oldScroll > oldOffset && c.oldScroll <= o.offset) {
+							triggerWaypoint(o, ['left']);
+						}
+						else if (oldOffset !== null && c.oldScroll < oldOffset && c.oldScroll >= o.offset) {
+							triggerWaypoint(o, ['right']);
+						}
+						/* For new waypoints added after load, check that down should have
+						already been triggered */
+						else if (!oldOffset && contextScroll > o.offset) {
+							triggerWaypoint(o, ['right']);
+						}
+					});
+
+					// Keep waypoints sorted by offset value.
+					c.waypoints.sort(function(a, b) {
+						return a.offset - b.offset;
+					});
 					
-					if (oldOffset !== null && c.oldScroll > oldOffset && c.oldScroll <= o.offset) {
-						triggerWaypoint(o, ['up']);
-					}
-					else if (oldOffset !== null && c.oldScroll < oldOffset && c.oldScroll >= o.offset) {
-						triggerWaypoint(o, ['down']);
-					}
-					/* For new waypoints added after load, check that down should have
-					already been triggered */
-					else if (!oldOffset && contextScroll > o.offset) {
-						triggerWaypoint(o, ['down']);
-					}
-				});
+				} else {
+					var isWin = $.isWindow(c.element[0]),
+						contextOffset = isWin ? 0 : c.element.offset().left,
+						contextHeight = isWin ? $[wps]('viewportWidth') : c.element.width(),
+						contextScroll = isWin ? 0 : c.element.scrollLeft();
+
+					$.each(c.waypoints, function(j, o) {
+					   /* $.each isn't safe from element removal due to triggerOnce.
+					   Should rewrite the loop but this is way easier. */
+					   if (!o) return;
+
+						// Adjustment is just the offset if it's a px value
+						var adjustment = o.options.offset,
+						oldOffset = o.offset;
+
+						// Set adjustment to the return value if offset is a function.
+						if (typeof o.options.offset === "function") {
+							adjustment = o.options.offset.apply(o.element);
+						}
+						// Calculate the adjustment if offset is a percentage.
+						else if (typeof o.options.offset === "string") {
+							var amount = parseFloat(o.options.offset);
+							adjustment = o.options.offset.indexOf("%") ?
+								Math.ceil(contextHeight * (amount / 100)) : amount;
+						}
+
+						/* 
+						Set the element offset to the window scroll offset, less
+						all our adjustments.
+						*/
+						o.offset = o.element.offset().top - contextOffset
+							+ contextScroll - adjustment;
+
+						/*
+						An element offset change across the current scroll point triggers
+						the event, just as if we scrolled past it unless prevented by an
+						optional flag.
+						*/
+						if (o.options.onlyOnScroll) return;
+
+						if (oldOffset !== null && c.oldScroll > oldOffset && c.oldScroll <= o.offset) {
+							triggerWaypoint(o, ['up']);
+						}
+						else if (oldOffset !== null && c.oldScroll < oldOffset && c.oldScroll >= o.offset) {
+							triggerWaypoint(o, ['down']);
+						}
+						/* For new waypoints added after load, check that down should have
+						already been triggered */
+						else if (!oldOffset && contextScroll > o.offset) {
+							triggerWaypoint(o, ['down']);
+						}
+					});
+
+					// Keep waypoints sorted by offset value.
+					c.waypoints.sort(function(a, b) {
+						return a.offset - b.offset;
+					});
+				}
 				
-				// Keep waypoints sorted by offset value.
-				c.waypoints.sort(function(a, b) {
-					return a.offset - b.offset;
-				});
 			});
 		},
 		
@@ -611,7 +731,8 @@ Support:
 		continuous: true,
 		offset: 0,
 		triggerOnce: false,
-		context: window
+		context: window,
+		horizontal: false
 	};
 	
 	
